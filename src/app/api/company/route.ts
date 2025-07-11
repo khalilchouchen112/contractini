@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
-import Contract from '@/models/Contract';
+import Company from '@/models/Company';
 
 export async function GET() {
   await dbConnect();
 
   try {
-    const contracts = await Contract.find({});
-    return NextResponse.json({ success: true, data: contracts });
+    const company = await Company.findOne({});
+    return NextResponse.json({ success: true, data: company });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
@@ -18,11 +18,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const contract = await Contract.create(body);
-    return NextResponse.json({ success: true, data: contract }, { status: 201 });
+    const company = await Company.create(body);
+    return NextResponse.json({ success: true, data: company }, { status: 201 });
   } catch (error) {
     if (error instanceof Error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
     }
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
@@ -35,17 +35,17 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, ...updateData } = body;
 
-    const updatedContract = await Contract.findByIdAndUpdate(
+    const company = await Company.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     );
 
-    if (!updatedContract) {
-      return NextResponse.json({ success: false, error: 'Contract not found' }, { status: 404 });
+    if (!company) {
+      return NextResponse.json({ success: false, error: 'Company not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: updatedContract });
+    return NextResponse.json({ success: true, data: company });
   } catch (error) {
     if (error instanceof Error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 400 });
@@ -62,16 +62,16 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'Contract ID is required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Company ID is required' }, { status: 400 });
     }
 
-    const deletedContract = await Contract.findByIdAndDelete(id);
+    const company = await Company.findByIdAndDelete(id);
 
-    if (!deletedContract) {
-      return NextResponse.json({ success: false, error: 'Contract not found' }, { status: 404 });
+    if (!company) {
+      return NextResponse.json({ success: false, error: 'Company not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: deletedContract });
+    return NextResponse.json({ success: true, data: company });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }

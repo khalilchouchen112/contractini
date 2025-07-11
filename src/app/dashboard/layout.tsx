@@ -36,6 +36,8 @@ export default function DashboardLayout({
     { href: "/dashboard/contracts", label: "Contracts", icon: FileText },
     { href: "/dashboard/users", label: "Users", icon: Users },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    { href: "/dashboard/settings/company", label: "Company", icon: Settings },
+    { href: "/my-contract", label: "My Contracts", icon: Settings },
   ]
 
   return (

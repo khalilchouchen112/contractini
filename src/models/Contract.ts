@@ -6,6 +6,11 @@ export interface IContract extends Document {
   startDate: Date;
   endDate?: Date;
   status: 'Active' | 'Expired' | 'Expiring Soon' | 'Terminated';
+  documents?: Array<{
+    fileName: string;
+    fileUrl: string;
+    uploadDate: Date;
+  }>;
 }
 
 const ContractSchema: Schema = new Schema({
@@ -14,6 +19,11 @@ const ContractSchema: Schema = new Schema({
   startDate: { type: Date, required: true },
   endDate: { type: Date },
   status: { type: String, required: true, enum: ['Active', 'Expired', 'Expiring Soon', 'Terminated'] },
+  documents: [{
+    fileName: { type: String, required: true },
+    fileUrl: { type: String, required: true },
+    uploadDate: { type: Date, default: Date.now }
+  }]
 });
 
 export default mongoose.models.Contract || mongoose.model<IContract>('Contract', ContractSchema);

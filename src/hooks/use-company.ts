@@ -1,0 +1,151 @@
+import { useState } from 'react';
+import { toast } from '@/hooks/use-toast';
+
+interface Company {
+  _id: string;
+  name: string;
+  address: string;
+  phone?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function useCompany() {
+  const [company, setCompany] = useState<Company | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchCompany = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/company');
+      const data = await response.json();
+      
+      if (data.success) {
+        setCompany(data.data);
+      } else {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch company information",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createCompany = async (companyData: Omit<Company, '_id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const response = await fetch('/api/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(companyData),
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setCompany(data.data);
+        toast({
+          title: "Success",
+          description: "Company created successfully",
+        });
+        return true;
+      } else {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create company",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const updateCompany = async (id: string, updateData: Partial<Omit<Company, '_id' | 'createdAt' | 'updatedAt'>>) => {
+    try {
+      const response = await fetch('/api/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...updateData }),
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setCompany(data.data);
+        toast({
+          title: "Success",
+          description: "Company updated successfully",
+        });
+        return true;
+      } else {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update company",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const deleteCompany = async (id: string) => {
+    try {
+      const response = await fetch(`/api/company?id=${id}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setCompany(null);
+        toast({
+          title: "Success",
+          description: "Company deleted successfully",
+        });
+        return true;
+      } else {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete company",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  return {
+    company,
+    loading,
+    fetchCompany,
+    createCompany,
+    updateCompany,
+    deleteCompany,
+  };
+}
