@@ -5,12 +5,14 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/icons";
+import Link from "next/link";
 
 export default function LoginPage() {
   return (
@@ -46,6 +48,14 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
+        <CardFooter className="flex justify-center text-sm">
+          <p>
+            Don't have an account?&nbsp;
+            <Link href="/signup" className="underline">
+              Sign up
+            </Link>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );
