@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import User from '@/models/User';
+import mongoose from 'mongoose';
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const { id } = params;
@@ -8,11 +9,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
   try {
     const body = await request.json();
-    const { name, email, phone, address } = body;
+    const { name, email, role, phone, address } = body;
 
     const user = await User.findByIdAndUpdate(
         id, 
-        { name, email, phone, address }, 
+        { name, email, role, phone, address }, 
         { new: true, runValidators: true }
     ).select('-password');
 
@@ -43,5 +44,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ success: true, data: { user, contracts } });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const { id } = params;
+  await dbConnect();
+
+  try {
+    const deletedUser = await User.findByIdAndDelete(id);
+
+    if (!deletedUser) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
+    // Optional: Also delete contracts associated with the user
+    // await mongoose.model('Contract').deleteMany({ employeeId: id });
+
+    return NextResponse.json({ success: true, data: {} });
+  } catch (error) {
+     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
 }

@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/tabs"
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
+import { useSearchParams } from "next/navigation"
 
 // const mockContracts = [
 //   { id: "CTR-001", employee: "John Doe", type: "CDD", startDate: "2023-01-15", endDate: "2024-01-14", status: "Expired" },
@@ -58,12 +59,37 @@ interface Contract {
 export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const userId = searchParams.get('userId');
+
 
   useEffect(() => {
     const fetchContracts = async () => {
       try {
-        const res = await fetch('/api/contracts');
-        const { data } = await res.json();
+        let url = '/api/contracts';
+        if (userId) {
+          // This endpoint doesn't exist yet, but shows the intent
+          // We will filter on the client for now.
+          // url = `/api/contracts?userId=${userId}`;
+        }
+        const res = await fetch(url);
+        let { data } = await res.json();
+
+        // TODO: Replace with proper API filtering
+        if(userId) {
+            // This is a temporary solution. In a real app, the API should handle filtering.
+            // We would need to know which field in the contract links to the user.
+            // Assuming it's `employee` by name for now.
+            const userRes = await fetch(`/api/users`);
+            const userData = await userRes.json();
+            const user = userData.data.find((u: any) => u._id === userId);
+            if(user) {
+              data = data.filter((c: Contract) => c.employee === user.name);
+            } else {
+              data = [];
+            }
+        }
+        
         setContracts(data);
       } catch (error) {
         console.error("Failed to fetch contracts", error);
@@ -72,7 +98,7 @@ export default function ContractsPage() {
       }
     };
     fetchContracts();
-  }, []);
+  }, [userId]);
 
 
   return (
@@ -123,6 +149,10 @@ export default function ContractsPage() {
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center">Loading...</TableCell>
+                  </TableRow>
+                ) : contracts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center">No contracts found.</TableCell>
                   </TableRow>
                 ) : contracts.map((contract) => (
                   <TableRow key={contract._id}>
