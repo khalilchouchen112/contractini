@@ -1,3 +1,5 @@
+"use client"
+
 import {
   MoreHorizontal,
   PlusCircle,
@@ -27,16 +29,42 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useEffect, useState } from "react"
 
-const mockUsers = [
-  { id: "USR-001", name: "John Doe", email: "john.doe@example.com", role: "USER" },
-  { id: "USR-002", name: "Jane Smith", email: "jane.smith@example.com", role: "USER" },
-  { id: "USR-003", name: "Admin User", email: "admin@example.com", role: "ADMIN" },
-  { id: "USR-004", name: "Mike Johnson", email: "mike.j@example.com", role: "USER" },
-  { id: "USR-005", name: "Emily Davis", email: "emily.d@example.com", role: "USER" },
-];
+// const mockUsers = [
+//   { id: "USR-001", name: "John Doe", email: "john.doe@example.com", role: "USER" },
+//   { id: "USR-002", name: "Jane Smith", email: "jane.smith@example.com", role: "USER" },
+//   { id: "USR-003", name: "Admin User", email: "admin@example.com", role: "ADMIN" },
+//   { id: "USR-004", name: "Mike Johnson", email: "mike.j@example.com", role: "USER" },
+//   { id: "USR-005", name: "Emily Davis", email: "emily.d@example.com", role: "USER" },
+// ];
+
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: 'USER' | 'ADMIN';
+}
 
 export default function UsersPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch('/api/users');
+        const { data } = await res.json();
+        setUsers(data);
+      } catch (error) {
+        console.error("Failed to fetch users", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -70,8 +98,12 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockUsers.map((user) => (
-              <TableRow key={user.id}>
+             {loading ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center">Loading...</TableCell>
+              </TableRow>
+            ) : users.map((user) => (
+              <TableRow key={user._id}>
                 <TableCell className="font-medium">{user.name}</TableCell>
                 <TableCell className="hidden md:table-cell text-muted-foreground">{user.email}</TableCell>
                 <TableCell>

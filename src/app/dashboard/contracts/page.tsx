@@ -1,8 +1,9 @@
+"use client"
+
 import {
   MoreHorizontal,
   PlusCircle,
 } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -33,19 +34,47 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { useEffect, useState } from "react"
+import { format } from "date-fns"
 
+// const mockContracts = [
+//   { id: "CTR-001", employee: "John Doe", type: "CDD", startDate: "2023-01-15", endDate: "2024-01-14", status: "Expired" },
+//   { id: "CTR-002", employee: "Jane Smith", type: "CDI", startDate: "2022-03-01", endDate: "N/A", status: "Active" },
+//   { id: "CTR-003", employee: "Mike Johnson", type: "Internship", startDate: "2024-06-01", endDate: "2024-11-30", status: "Active" },
+//   { id: "CTR-004", employee: "Emily Davis", type: "CDD", startDate: "2023-08-15", endDate: "2024-08-14", status: "Expiring Soon" },
+//   { id: "CTR-005", employee: "Chris Brown", type: "CDI", startDate: "2021-05-20", endDate: "N/A", status: "Active" },
+//   { id: "CTR-006", employee: "Sarah Wilson", type: "Terminated", startDate: "2022-10-01", endDate: "2023-09-30", status: "Terminated" },
+// ];
 
-const mockContracts = [
-  { id: "CTR-001", employee: "John Doe", type: "CDD", startDate: "2023-01-15", endDate: "2024-01-14", status: "Expired" },
-  { id: "CTR-002", employee: "Jane Smith", type: "CDI", startDate: "2022-03-01", endDate: "N/A", status: "Active" },
-  { id: "CTR-003", employee: "Mike Johnson", type: "Internship", startDate: "2024-06-01", endDate: "2024-11-30", status: "Active" },
-  { id: "CTR-004", employee: "Emily Davis", type: "CDD", startDate: "2023-08-15", endDate: "2024-08-14", status: "Expiring Soon" },
-  { id: "CTR-005", employee: "Chris Brown", type: "CDI", startDate: "2021-05-20", endDate: "N/A", status: "Active" },
-  { id: "CTR-006", employee: "Sarah Wilson", type: "Terminated", startDate: "2022-10-01", endDate: "2023-09-30", status: "Terminated" },
-];
-
+interface Contract {
+  _id: string;
+  employee: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+}
 
 export default function ContractsPage() {
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchContracts = async () => {
+      try {
+        const res = await fetch('/api/contracts');
+        const { data } = await res.json();
+        setContracts(data);
+      } catch (error) {
+        console.error("Failed to fetch contracts", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchContracts();
+  }, []);
+
+
   return (
     <Tabs defaultValue="all">
       <div className="flex items-center">
@@ -91,8 +120,12 @@ export default function ContractsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockContracts.map((contract) => (
-                  <TableRow key={contract.id}>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center">Loading...</TableCell>
+                  </TableRow>
+                ) : contracts.map((contract) => (
+                  <TableRow key={contract._id}>
                     <TableCell className="font-medium">{contract.employee}</TableCell>
                     <TableCell>{contract.type}</TableCell>
                     <TableCell className="hidden md:table-cell">
@@ -110,8 +143,8 @@ export default function ContractsPage() {
                         {contract.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{contract.endDate}</TableCell>
-                    <TableCell className="hidden md:table-cell">{contract.startDate}</TableCell>
+                    <TableCell className="hidden md:table-cell">{contract.endDate ? format(new Date(contract.endDate), "PPP") : 'N/A'}</TableCell>
+                    <TableCell className="hidden md:table-cell">{format(new Date(contract.startDate), "PPP")}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
