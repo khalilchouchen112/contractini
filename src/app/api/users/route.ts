@@ -30,14 +30,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'User already exists' }, { status: 409 });
     }
 
+    console.log('Creating user:', { name, email, role, password });
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
       role
     });
+
+    console.log('User created:', user);
 
     const userResponse = {
       _id: user._id,
@@ -48,8 +52,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: userResponse }, { status: 201 });
   } catch (error) {
-     if (error instanceof Error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    if (error instanceof Error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
     }
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }

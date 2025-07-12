@@ -52,7 +52,7 @@ export default function SignupPage() {
           title: "Account created!",
           description: "You have been successfully signed up.",
         });
-        router.push("/dashboard");
+        router.push('/');
       } else {
         const { error } = await res.json();
         toast({
