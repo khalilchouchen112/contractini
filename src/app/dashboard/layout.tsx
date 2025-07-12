@@ -24,6 +24,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Logo } from "@/components/icons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useEffect } from "react"
+import useUser from "@/hooks/use-user"
 
 export default function DashboardLayout({
   children,
@@ -31,6 +32,8 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+
+  const user = useUser()
 
   const handleLogout = async () => {
     try {
@@ -60,7 +63,7 @@ export default function DashboardLayout({
     checkAuth();
   }, []);
 
-  const navItems = [
+  const adminNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/contracts", label: "Contracts", icon: FileText },
     { href: "/dashboard/users", label: "Users", icon: Users },
@@ -68,6 +71,13 @@ export default function DashboardLayout({
     { href: "/dashboard/settings/company", label: "Company", icon: Settings },
     { href: "/my-contract", label: "My Contracts", icon: Settings },
   ]
+
+  const userNavItems = [
+    { href: "/my-contract", label: "My Contracts", icon: Settings },
+  ]
+
+  const navItems = user?.user?.role === 'ADMIN' ? adminNavItems : userNavItems;
+
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
