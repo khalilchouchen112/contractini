@@ -3,7 +3,11 @@ import { toast } from '@/hooks/use-toast';
 
 interface Contract {
   _id: string;
-  employee: string;
+  employee: {
+    _id: string;
+    name: string;
+    email: string;
+  } | string; // Can be populated object or just ID string
   type: 'CDD' | 'CDI' | 'Internship' | 'Terminated';
   startDate: string;
   endDate?: string;
@@ -19,12 +23,30 @@ export function useContracts() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchContracts = async () => {
+  const fetchContracts = async (filters?: { status?: string; type?: string; userId?: string }) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/contracts');
-      const data = await response.json();
+      // Build query parameters
+      const searchParams = new URLSearchParams();
       
+      if (filters?.status && filters.status !== 'all') {
+        searchParams.append('status', filters.status);
+      }
+      
+      if (filters?.type && filters.type !== 'all') {
+        searchParams.append('type', filters.type);
+      }
+      
+      if (filters?.userId) {
+        searchParams.append('userId', filters.userId);
+      }
+
+      const queryString = searchParams.toString();
+      const url = `/api/contracts${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
       if (data.success) {
         setContracts(data.data);
       } else {
@@ -48,8 +70,14 @@ export function useContracts() {
   const createContract = async (contractData: Omit<Contract, '_id'>) => {
     try {
       // Format the dates and ensure documents array exists
+      // If employee is an object, extract the ID
+      const employeeId = typeof contractData.employee === 'object'
+        ? contractData.employee._id
+        : contractData.employee;
+
       const formattedData = {
         ...contractData,
+        employee: employeeId, // Send only the employee ID to the API
         documents: contractData.documents || [],
         startDate: new Date(contractData.startDate).toISOString(),
         endDate: contractData.endDate ? new Date(contractData.endDate).toISOString() : undefined,
@@ -61,7 +89,7 @@ export function useContracts() {
         body: JSON.stringify(formattedData),
       });
       const data = await response.json();
-      
+
       if (data.success) {
         toast({
           title: "Success",
@@ -95,7 +123,7 @@ export function useContracts() {
         body: JSON.stringify({ id, ...updateData }),
       });
       const data = await response.json();
-      
+
       if (data.success) {
         toast({
           title: "Success",
@@ -127,7 +155,7 @@ export function useContracts() {
         method: 'DELETE',
       });
       const data = await response.json();
-      
+
       if (data.success) {
         toast({
           title: "Success",

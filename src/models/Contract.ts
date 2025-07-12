@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IContract extends Document {
-  employee: string;
   type: 'CDD' | 'CDI' | 'Internship' | 'Terminated';
   startDate: Date;
   endDate?: Date;
@@ -11,10 +10,11 @@ export interface IContract extends Document {
     fileUrl: string;
     uploadDate: Date;
   }>;
+  employee: mongoose.Types.ObjectId;
 }
 
 const ContractSchema: Schema = new Schema({
-  employee: { type: String, required: true },
+  employee: { type: mongoose.Types.ObjectId, ref: 'User', required: true },
   type: { type: String, required: true, enum: ['CDD', 'CDI', 'Internship', 'Terminated'] },
   startDate: { type: Date, required: true },
   endDate: { type: Date },

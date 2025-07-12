@@ -2,13 +2,37 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Contract from '@/models/Contract';
 
-export async function GET() {
+export async function GET(request: Request) {
   await dbConnect();
 
   try {
-    const contracts = await Contract.find({});
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const type = searchParams.get('type');
+    const userId = searchParams.get('userId');
+
+    // Build filter object
+    let filter: any = {};
+
+    // Filter by status
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+
+    // Filter by contract type
+    if (type && type !== 'all') {
+      filter.type = type;
+    }
+
+    // Filter by user ID
+    if (userId) {
+      filter.employee = userId;
+    }
+
+    const contracts = await Contract.find(filter).populate('employee', 'name email _id');
     return NextResponse.json({ success: true, data: contracts });
   } catch (error) {
+    console.error('Error fetching contracts:', error);
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
 }
@@ -22,7 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data: contract }, { status: 201 });
   } catch (error) {
     if (error instanceof Error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
     }
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }

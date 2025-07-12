@@ -30,7 +30,9 @@ export async function verifyAuth() {
             userId: authToken.userId._id.toString(),
             email: authToken.userId.email,
             role: authToken.userId.role,
-            name: authToken.userId.name
+            name: authToken.userId.name,
+            phone: authToken.userId.phone,
+            address: authToken.userId.address
         };
     } catch (error) {
         console.error('Auth verification error:', error);
@@ -65,7 +67,9 @@ export async function getUserFromToken() {
             _id: user._id.toString(),
             name: user.name,
             email: user.email,
-            role: user.role
+            role: user.role,
+            phone: user.phone,
+            address: user.address
         };
     } catch (error) {
         console.error('Get user from token error:', error);

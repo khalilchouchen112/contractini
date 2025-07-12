@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 
 interface Company {
@@ -13,15 +13,20 @@ interface Company {
 export function useCompany() {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetched, setFetched] = useState(false);
 
-  const fetchCompany = async () => {
+  const fetchCompany = useCallback(async () => {
+    if (loading || fetched) return; // Prevent multiple simultaneous calls
+    
     setLoading(true);
+    console.log('Fetching company data...'); // Debug log
     try {
       const response = await fetch('/api/company');
       const data = await response.json();
       
       if (data.success) {
         setCompany(data.data);
+        setFetched(true);
       } else {
         toast({
           title: "Error",
@@ -38,9 +43,9 @@ export function useCompany() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loading, fetched]);
 
-  const createCompany = async (companyData: Omit<Company, '_id' | 'createdAt' | 'updatedAt'>) => {
+  const createCompany = useCallback(async (companyData: Omit<Company, '_id' | 'createdAt' | 'updatedAt'>) => {
     try {
       const response = await fetch('/api/company', {
         method: 'POST',
@@ -51,6 +56,7 @@ export function useCompany() {
       
       if (data.success) {
         setCompany(data.data);
+        setFetched(true); // Mark as fetched since we now have data
         toast({
           title: "Success",
           description: "Company created successfully",
@@ -72,9 +78,9 @@ export function useCompany() {
       });
       return false;
     }
-  };
+  }, []);
 
-  const updateCompany = async (id: string, updateData: Partial<Omit<Company, '_id' | 'createdAt' | 'updatedAt'>>) => {
+  const updateCompany = useCallback(async (id: string, updateData: Partial<Omit<Company, '_id' | 'createdAt' | 'updatedAt'>>) => {
     try {
       const response = await fetch('/api/company', {
         method: 'PUT',
@@ -85,6 +91,7 @@ export function useCompany() {
       
       if (data.success) {
         setCompany(data.data);
+        setFetched(true); // Mark as fetched since we now have updated data
         toast({
           title: "Success",
           description: "Company updated successfully",
@@ -106,9 +113,9 @@ export function useCompany() {
       });
       return false;
     }
-  };
+  }, []);
 
-  const deleteCompany = async (id: string) => {
+  const deleteCompany = useCallback(async (id: string) => {
     try {
       const response = await fetch(`/api/company?id=${id}`, {
         method: 'DELETE',
@@ -138,7 +145,7 @@ export function useCompany() {
       });
       return false;
     }
-  };
+  }, []);
 
   return {
     company,

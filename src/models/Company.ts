@@ -10,6 +10,7 @@ const CompanySchema: Schema = new Schema({
   name: { type: String, required: true, unique: true },
   address: { type: String, required: true },
   phone: { type: String },
+  owner: { type: mongoose.Types.ObjectId, ref: 'User', required: true }
 }, {
   timestamps: true
 });
