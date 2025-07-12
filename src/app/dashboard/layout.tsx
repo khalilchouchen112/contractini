@@ -7,8 +7,9 @@ import {
   Users,
   Settings,
   PanelLeft,
+  Building,
 } from "lucide-react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,9 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Logo } from "@/components/icons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useEffect } from "react"
-import useUser from "@/hooks/use-user"
+import { useAuth } from "@/contexts/auth-context"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { useToast } from "@/hooks/use-toast"
 
 export default function DashboardLayout({
   children,
@@ -32,59 +35,65 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-
-  const user = useUser()
+  const router = useRouter()
+  const { toast } = useToast()
+  const { user, loading, logout } = useAuth()
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/users/logout', {
-        method: 'POST',
-        credentials: 'include',
+      await logout();
+      toast({
+        title: "Success",
+        description: "You have been logged out successfully.",
       });
-      window.location.href = '/';
     } catch (error) {
-      console.error('Logout failed:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+      });
     }
   };
 
+  // Protect the dashboard routes
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/users/me', {
-          credentials: 'include',
-        });
-        if (!res.ok) {
-          window.location.href = '/';
-        }
-      } catch (error) {
-        console.error('Failed to check authentication:', error);
-      }
-    };
-    checkAuth();
-  }, []);
+    if (!loading && !user) {
+      router.push('/');
+    }
+  }, [loading, user, router]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const adminNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/contracts", label: "Contracts", icon: FileText },
     { href: "/dashboard/users", label: "Users", icon: Users },
+    { href: "/dashboard/settings/company", label: "Company", icon: Building },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
-    { href: "/dashboard/settings/company", label: "Company", icon: Settings },
-    { href: "/my-contract", label: "My Contracts", icon: Settings },
   ]
 
   const userNavItems = [
-    { href: "/my-contract", label: "My Contracts", icon: Settings },
+    { href: "/my-contract", label: "My Contracts", icon: FileText },
   ]
 
-  const navItems = user?.user?.role === 'ADMIN' ? adminNavItems : userNavItems;
-
+  const navItems = user.role === 'ADMIN' ? adminNavItems : userNavItems;
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <div className="hidden border-r bg-muted/40 md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
+            <Link href={user.role === 'ADMIN' ? '/dashboard' : '/my-contract'} className="flex items-center gap-2 font-semibold">
               <Logo className="h-6 w-6 text-primary" />
               <span className="">ContractZenith</span>
             </Link>
@@ -100,7 +109,7 @@ export default function DashboardLayout({
                     pathname === href && "bg-muted text-primary"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  {Icon && <Icon className="h-4 w-4" />}
                   {label}
                 </Link>
               ))}
@@ -124,11 +133,11 @@ export default function DashboardLayout({
             <SheetContent side="left" className="flex flex-col">
               <nav className="grid gap-2 text-lg font-medium">
                 <Link
-                  href="#"
+                  href={user.role === 'ADMIN' ? '/dashboard' : '/my-contract'}
                   className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                   <Logo className="h-6 w-6 text-primary" />
-                  <span>ContractZenith</span>
+                  ContractZenith
                 </Link>
                 {navItems.map(({ href, label, icon: Icon }) => (
                   <Link
@@ -139,7 +148,7 @@ export default function DashboardLayout({
                       pathname === href && "bg-muted text-foreground"
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    {Icon && <Icon className="h-5 w-5" />}
                     {label}
                   </Link>
                 ))}
@@ -147,25 +156,50 @@ export default function DashboardLayout({
             </SheetContent>
           </Sheet>
           <div className="w-full flex-1">
-            {/* Can be used for a global search bar */}
+            {/* User info display */}
+            <div className="text-sm text-muted-foreground hidden md:block">
+              Welcome, <span className="font-medium text-foreground">{user?.name || 'User'}</span>
+            </div>
           </div>
+          <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
-                  <AvatarImage src="https://placehold.co/100x100.png" alt="@admin" data-ai-hint="person avatar" />
-                  <AvatarFallback>AD</AvatarFallback>
+                  <AvatarImage
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.name || '')}`}
+                    alt={user?.name || 'User'}
+                  />
+                  <AvatarFallback>
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Toggle user menu</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuLabel className="flex flex-col gap-1">
+                <span className="font-normal text-sm text-muted-foreground">Signed in as</span>
+                <span className="font-medium">{user?.name || 'User'}</span>
+                <span className="text-xs text-muted-foreground truncate">{user?.email || ''}</span>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings">Profile Settings</Link>
+              </DropdownMenuItem>
+              {user.role === 'ADMIN' && (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/settings/company">Company Settings</Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                onClick={handleLogout}
+              >
+                Logout
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
@@ -174,5 +208,5 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
-  )
+  );
 }

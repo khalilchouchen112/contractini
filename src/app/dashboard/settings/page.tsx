@@ -1,3 +1,4 @@
+"use client"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -22,7 +23,14 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-6">
+          <form
+            className="grid gap-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              // TODO: Implement save logic here (e.g., API call or state update)
+              alert("Settings saved!");
+            }}
+          >
             <div className="grid gap-3">
               <Label htmlFor="company-name">Company Name</Label>
               <Input
@@ -67,11 +75,11 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+            <CardFooter className="border-t px-6 py-4">
+              <Button type="submit">Save Changes</Button>
+            </CardFooter>
           </form>
         </CardContent>
-        <CardFooter className="border-t px-6 py-4">
-          <Button>Save Changes</Button>
-        </CardFooter>
       </Card>
     </div>
   )

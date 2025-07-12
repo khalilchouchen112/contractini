@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import User from '@/models/User';
+import AuthToken from '@/models/auth-token';
+import { cleanupExpiredTokens } from '@/lib/token-utils';
 import bcrypt from 'bcryptjs';
-import { sign } from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+import { randomBytes } from 'crypto';
 
 export async function POST(request: Request) {
   await dbConnect();
@@ -30,27 +30,15 @@ export async function POST(request: Request) {
     // Explicitly select the password field
     const user = await User.findOne({ email }).select('+password');
 
-    console.log('User found:', user);
-
     if (!user) {
-      console.log('User not found:', email);
       return NextResponse.json(
         { success: false, error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
-
-    // For development/testing purposes only
-    console.log('Login attempt:', {
-      email,
-      hasPassword: !!user.password,
-      passwordStartsWith: user.password?.substring(0, 4),
-    });
-
     // Make sure we have a password to compare against
     if (!user.password) {
-      console.log('No password set for user:', email);
       return NextResponse.json(
         { success: false, error: 'Invalid credentials' },
         { status: 401 }
@@ -61,23 +49,34 @@ export async function POST(request: Request) {
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      console.log('Password mismatch for user:', email);
       return NextResponse.json(
         { success: false, error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
-    // Create session token
-    const token = sign(
-      {
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Clean up any existing expired tokens for this user
+    await AuthToken.deleteMany({
+      userId: user._id,
+      expiresAt: { $lt: new Date() }
+    });
+
+    // Also run a general cleanup periodically (every login)
+    cleanupExpiredTokens().catch(console.error);
+
+    // Generate a secure random token
+    const token = randomBytes(32).toString('hex');
+    
+    // Set expiration date (24 hours from now)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    // Save the token to database
+    await AuthToken.create({
+      userId: user._id,
+      token,
+      expiresAt
+    });
 
     const userResponse = {
       _id: user._id.toString(),
@@ -92,7 +91,7 @@ export async function POST(request: Request) {
       { status: 200 }
     );
 
-    // Set HTTP-only cookie
+    // Set HTTP-only cookie with the token
     response.cookies.set({
       name: 'auth-token',
       value: token,

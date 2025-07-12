@@ -92,7 +92,7 @@ export default function SignupPage() {
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input placeholder="foulen fouleni" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -105,7 +105,7 @@ export default function SignupPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="john.doe@example.com" {...field} />
+                      <Input placeholder="foulen.fouleni@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -130,7 +130,7 @@ export default function SignupPage() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex justify-center text-sm">
+        <CardFooter className="flex flex-col gap-2 items-center text-sm">
           <p>
             Already have an account?&nbsp;
             <Link href="/" className="underline">
