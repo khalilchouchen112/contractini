@@ -3,6 +3,7 @@ import { AlertTriangle, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useContractStatusService } from '@/hooks/use-contract-status';
+import { useCompany } from '@/hooks/use-company';
 
 interface StatusNotificationProps {
   onDismiss?: () => void;
@@ -18,10 +19,22 @@ export const ContractStatusNotification: React.FC<StatusNotificationProps> = ({
   const [expiringContracts, setExpiringContracts] = useState<any[]>([]);
   const [showNotification, setShowNotification] = useState(false);
   const { getExpiringContracts, isLoadingExpiring } = useContractStatusService();
+  const { company } = useCompany();
 
   const checkForExpiringContracts = async () => {
     try {
-      const expiring = await getExpiringContracts(7); // Check for contracts expiring in 7 days
+      // Use company-specific notification settings
+      const notificationDays = company?.settings?.contractNotifications?.expiringContractDays || 7;
+      const notificationsEnabled = company?.settings?.contractNotifications?.enabled ?? true;
+      const dashboardNotifications = company?.settings?.contractNotifications?.dashboardNotifications ?? true;
+      
+      // Only show notifications if enabled in company settings
+      if (!notificationsEnabled || !dashboardNotifications) {
+        setShowNotification(false);
+        return;
+      }
+      
+      const expiring = await getExpiringContracts(notificationDays);
       setExpiringContracts(expiring);
       setShowNotification(expiring.length > 0);
     } catch (error) {
@@ -34,15 +47,31 @@ export const ContractStatusNotification: React.FC<StatusNotificationProps> = ({
       // Initial check
       checkForExpiringContracts();
       
-      // Set up interval
+      // Set up interval based on company reminder frequency
+      const frequency = company?.settings?.contractNotifications?.reminderFrequency || 'weekly';
+      let intervalMinutes = checkInterval;
+      
+      // Override interval based on company settings
+      switch (frequency) {
+        case 'daily':
+          intervalMinutes = 24 * 60; // 24 hours
+          break;
+        case 'weekly':
+          intervalMinutes = 7 * 24 * 60; // 1 week
+          break;
+        case 'monthly':
+          intervalMinutes = 30 * 24 * 60; // 30 days
+          break;
+      }
+      
       const interval = setInterval(
         checkForExpiringContracts,
-        checkInterval * 60 * 1000 // Convert minutes to milliseconds
+        intervalMinutes * 60 * 1000 // Convert minutes to milliseconds
       );
 
       return () => clearInterval(interval);
     }
-  }, [autoCheck, checkInterval]);
+  }, [autoCheck, checkInterval, company?.settings?.contractNotifications]);
 
   const handleDismiss = () => {
     setShowNotification(false);
@@ -63,7 +92,8 @@ export const ContractStatusNotification: React.FC<StatusNotificationProps> = ({
         <div className="mt-2">
           <p className="mb-2">
             {expiringContracts.length} contract{expiringContracts.length > 1 ? 's' : ''} 
-            {expiringContracts.length === 1 ? ' is' : ' are'} expiring within the next 7 days:
+            {expiringContracts.length === 1 ? ' is' : ' are'} expiring within the next{' '}
+            {company?.settings?.contractNotifications?.expiringContractDays || 7} days:
           </p>
           <ul className="list-disc list-inside space-y-1 text-sm">
             {expiringContracts.slice(0, 3).map((contract) => (

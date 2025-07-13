@@ -11,6 +11,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status');
     const type = searchParams.get('type');
     const userId = searchParams.get('userId');
+    const companyId = searchParams.get('companyId');
 
     // Build filter object
     let filter: any = {};
@@ -30,7 +31,14 @@ export async function GET(request: Request) {
       filter.employee = userId;
     }
 
-    const contracts = await Contract.find(filter).populate('employee', 'name email _id');
+    // Filter by company ID
+    if (companyId && companyId !== 'all') {
+      filter.company = companyId;
+    }
+
+    const contracts = await Contract.find(filter)
+      .populate('employee', 'name email _id')
+      .populate('company', 'name _id');
     return NextResponse.json({ success: true, data: contracts });
   } catch (error) {
     console.error('Error fetching contracts:', error);

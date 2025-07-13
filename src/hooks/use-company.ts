@@ -6,12 +6,26 @@ interface Company {
   name: string;
   address: string;
   phone?: string;
+  settings: {
+    expiringSoonDays: number;
+    autoRenewal: boolean;
+    terminationNoticeDays: number;
+    contractNotifications: {
+      enabled: boolean;
+      expiringContractDays: number;
+      expiredContractGraceDays: number;
+      reminderFrequency: 'daily' | 'weekly' | 'monthly';
+      emailNotifications: boolean;
+      dashboardNotifications: boolean;
+    };
+  };
   createdAt: string;
   updatedAt: string;
 }
 
 export function useCompany() {
   const [company, setCompany] = useState<Company | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
 
@@ -44,6 +58,32 @@ export function useCompany() {
       setLoading(false);
     }
   }, [loading, fetched]);
+
+  const fetchAllCompanies = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/company?all=true');
+      const data = await response.json();
+      
+      if (data.success) {
+        setCompanies(data.data || []);
+      } else {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch companies",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const createCompany = useCallback(async (companyData: Omit<Company, '_id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -149,8 +189,10 @@ export function useCompany() {
 
   return {
     company,
+    companies,
     loading,
     fetchCompany,
+    fetchAllCompanies,
     createCompany,
     updateCompany,
     deleteCompany,

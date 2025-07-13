@@ -68,6 +68,7 @@ import { format } from "date-fns"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useContracts } from "@/hooks/use-contracts"
 import { useContractStatusService } from "@/hooks/use-contract-status"
+import { useCompany } from "@/hooks/use-company"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -76,6 +77,7 @@ import { useToast } from "@/hooks/use-toast"
 
 const contractFormSchema = z.object({
   employee: z.string().min(1, "Employee is required"),
+  company: z.string().min(1, "Company is required"),
   type: z.enum(['CDD', 'CDI', 'Internship', 'Terminated'], {
     required_error: "Contract type is required",
   }),
@@ -100,6 +102,10 @@ interface Contract {
     name: string;
     email: string;
   } | string;
+  company: {
+    _id: string;
+    name: string;
+  },
   type: 'CDD' | 'CDI' | 'Internship' | 'Terminated';
   startDate: string;
   endDate?: string;
@@ -122,6 +128,7 @@ export default function ContractsPage() {
 function ContractsContent() {
   const { contracts, loading, fetchContracts, createContract, updateContract, deleteContract } = useContracts();
   const { isUpdating, updateAllStatuses, getExpiringContracts } = useContractStatusService();
+  const { companies, loading: loadingCompanies, fetchAllCompanies } = useCompany();
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const { toast } = useToast();
@@ -138,7 +145,8 @@ function ContractsContent() {
   const [filters, setFilters] = useState({
     status: 'all',
     type: 'all',
-    userId: userId || undefined
+    userId: userId || undefined,
+    companyId: 'all'
   });
 
   // Fetch users function
@@ -162,6 +170,7 @@ function ContractsContent() {
     resolver: zodResolver(contractFormSchema),
     defaultValues: {
       employee: "",
+      company: "",
       type: undefined,
       startDate: "",
       endDate: "",
@@ -174,11 +183,13 @@ function ContractsContent() {
     const initialFilters = {
       status: 'all',
       type: 'all',
-      userId: userId || undefined
+      userId: userId || undefined,
+      companyId: 'all'
     };
     setFilters(initialFilters);
     fetchUsers();
-  }, [userId]);
+    fetchAllCompanies();
+  }, [userId, fetchAllCompanies]);
 
   useEffect(() => {
     // Fetch contracts when filters change
@@ -216,14 +227,15 @@ function ContractsContent() {
     const resetFilterState = {
       status: 'all',
       type: 'all',
-      userId: userId || undefined // Keep userId if it came from URL params
+      userId: userId || undefined, // Keep userId if it came from URL params
+      companyId: 'all'
     };
     setFilters(resetFilterState);
     setActiveTab('all');
   };
 
   // Check if any filters are active
-  const hasActiveFilters = filters.status !== 'all' || filters.type !== 'all' || (filters.userId && !userId);
+  const hasActiveFilters = filters.status !== 'all' || filters.type !== 'all' || (filters.userId && !userId) || filters.companyId !== 'all';
 
   // Helper function to get shareable URL for a user's contracts
   const getShareableUserUrl = (userId: string) => {
@@ -255,8 +267,13 @@ function ContractsContent() {
         ? editingContract.employee._id
         : editingContract.employee;
 
+      const companyId = typeof editingContract.company === 'object'
+        ? editingContract.company?._id
+        : editingContract.company;
+
       form.reset({
         employee: employeeId,
+        company: companyId || "",
         type: editingContract.type,
         startDate: editingContract.startDate,
         endDate: editingContract.endDate || "",
@@ -264,7 +281,7 @@ function ContractsContent() {
       });
       setUploadedDocuments(editingContract.documents || []);
     }
-  }, [editingContract]);
+  }, [editingContract, form]);
 
   // Process contracts to ensure consistent structure
   const processedContracts: Contract[] = contracts.map(contract => ({
@@ -275,6 +292,12 @@ function ContractsContent() {
     endDate: contract.endDate || "",
     status: contract.status || "Active",
     documents: contract.documents || [],
+    company: typeof contract.company === "object" && contract.company !== null
+      ? contract.company
+      : (
+        companies.find(c => c._id === contract.company)
+        || { _id: typeof contract.company === "string" ? contract.company : "", name: "N/A" }
+      )
   }));
 
   // Helper function to get employee name for display
@@ -285,6 +308,16 @@ function ContractsContent() {
     // If it's just an ID, try to find the user in our users list
     const user = users.find(u => u._id === employee);
     return user ? user.name : employee;
+  };
+
+  // Helper function to get company name for display
+  const getCompanyName = (company: Contract['company']) => {
+    if (typeof company === 'object' && company) {
+      return company.name;
+    }
+    // If it's just an ID, try to find the company in our companies list
+    const companyObj = companies.find(c => c._id === company);
+    return companyObj ? companyObj.name : company || 'N/A';
   };
 
   // Since filtering is now done on the backend, we use all processed contracts
@@ -333,22 +366,21 @@ function ContractsContent() {
     const confirmed = window.confirm(
       `Are you sure you want to renew the contract for ${getEmployeeName(contract.employee)}?`
     );
-    
+
     if (!confirmed) return;
 
     try {
-      // Calculate new end date (1 year from current end date or today if no end date)
       const currentEndDate = contract.endDate ? new Date(contract.endDate) : new Date();
       const newEndDate = new Date(currentEndDate);
       newEndDate.setFullYear(newEndDate.getFullYear() + 1);
 
       const renewalData = {
-        endDate: newEndDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        endDate: newEndDate.toISOString().split('T')[0],
         status: 'Active' as const
       };
 
       const success = await updateContract(contract._id, renewalData);
-      
+
       if (success) {
         toast({
           title: "Contract Renewed",
@@ -368,7 +400,7 @@ function ContractsContent() {
     const confirmed = window.confirm(
       `Are you sure you want to terminate the contract for ${getEmployeeName(contract.employee)}? This action cannot be undone.`
     );
-    
+
     if (!confirmed) return;
 
     try {
@@ -378,7 +410,7 @@ function ContractsContent() {
       };
 
       const success = await updateContract(contract._id, terminationData);
-      
+
       if (success) {
         toast({
           title: "Contract Terminated",
@@ -427,6 +459,7 @@ function ContractsContent() {
         'Employee Name': getEmployeeName(contract.employee),
         'Employee Email': typeof contract.employee === 'object' ? contract.employee.email :
           users.find(u => u._id === contract.employee)?.email || '',
+        'Company Name': contract.company.name,
         'Contract Type': contract.type,
         'Status': contract.status,
         'Start Date': contract.startDate ? format(new Date(contract.startDate), "dd/MM/yyyy") : '',
@@ -443,6 +476,7 @@ function ContractsContent() {
       const columnWidths = [
         { wch: 20 }, // Employee Name
         { wch: 25 }, // Employee Email
+        { wch: 20 }, // Company Name
         { wch: 15 }, // Contract Type
         { wch: 12 }, // Status
         { wch: 12 }, // Start Date
@@ -465,6 +499,11 @@ function ContractsContent() {
 
       if (filters.type !== 'all') {
         filterSuffix += `-${filters.type.toLowerCase()}`;
+      }
+
+      if (filters.companyId !== 'all') {
+        const companyName = companies.find(c => c._id === filters.companyId)?.name || 'company';
+        filterSuffix += `-${companyName.toLowerCase().replace(/\s+/g, '-')}`;
       }
 
       const filename = `contracts-export${filterSuffix}-${currentDate}.xlsx`;
@@ -535,6 +574,22 @@ function ContractsContent() {
               ))}
             </SelectContent>
           </Select>
+          <Select
+            value={filters.companyId || 'all'}
+            onValueChange={(value) => setFilters(prev => ({ ...prev, companyId: value === 'all' ? 'all' : value }))}
+          >
+            <SelectTrigger className="w-40 h-8" disabled={loading || loadingCompanies}>
+              <SelectValue placeholder="Company" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Companies</SelectItem>
+              {companies.map((company) => (
+                <SelectItem key={company._id} value={company._id}>
+                  {company.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {hasActiveFilters && (
             <Button
               variant="outline"
@@ -596,6 +651,9 @@ function ContractsContent() {
                 {filters.userId && (
                   ` • Employee: ${users.find(u => u._id === filters.userId)?.name || 'Unknown'}`
                 )}
+                {filters.companyId !== 'all' && (
+                  ` • Company: ${companies.find(c => c._id === filters.companyId)?.name || 'Unknown'}`
+                )}
               </>
             ) : (
               'Manage all employee contracts.'
@@ -607,6 +665,7 @@ function ContractsContent() {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
+                <TableHead className="hidden lg:table-cell">Company</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="hidden md:table-cell">Status</TableHead>
                 <TableHead className="hidden md:table-cell">End Date</TableHead>
@@ -620,7 +679,7 @@ function ContractsContent() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                       Loading contracts...
@@ -629,7 +688,7 @@ function ContractsContent() {
                 </TableRow>
               ) : filteredContracts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     {hasActiveFilters ? (
                       <div className="text-center">
                         <p className="text-muted-foreground">No contracts match your current filters.</p>
@@ -649,6 +708,7 @@ function ContractsContent() {
               ) : filteredContracts.map((contract) => (
                 <TableRow key={contract._id}>
                   <TableCell className="font-medium">{getEmployeeName(contract.employee)}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{getCompanyName(contract.company)}</TableCell>
                   <TableCell>{contract.type}</TableCell>
                   <TableCell className="hidden md:table-cell">
                     <Badge variant={
@@ -698,13 +758,13 @@ function ContractsContent() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleEdit(contract)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => handleRenewContract(contract)}
                           disabled={contract.status === 'Terminated'}
                         >
                           Renew
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => handleTerminateContract(contract)}
                           disabled={contract.status === 'Terminated'}
                           className={contract.status === 'Terminated' ? '' : 'text-orange-600 focus:text-orange-700'}
@@ -769,6 +829,36 @@ function ContractsContent() {
                           users.map((user) => (
                             <SelectItem key={user._id} value={user._id}>
                               {user.name} ({user.email})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {loadingCompanies ? (
+                          <SelectItem value="" disabled>Loading companies...</SelectItem>
+                        ) : companies.length === 0 ? (
+                          <SelectItem value="" disabled>No companies available</SelectItem>
+                        ) : (
+                          companies.map((company) => (
+                            <SelectItem key={company._id} value={company._id}>
+                              {company.name}
                             </SelectItem>
                           ))
                         )}

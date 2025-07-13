@@ -22,6 +22,8 @@ import {
     FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,11 +35,25 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useAuth } from "@/contexts/auth-context"
 
 const companyFormSchema = z.object({
     name: z.string().min(1, "Company name is required"),
     address: z.string().min(1, "Address is required"),
     phone: z.string().optional(),
+    settings: z.object({
+        expiringSoonDays: z.number().min(1).max(365),
+        autoRenewal: z.boolean(),
+        terminationNoticeDays: z.number().min(1).max(365),
+        contractNotifications: z.object({
+            enabled: z.boolean(),
+            expiringContractDays: z.number().min(1).max(365),
+            expiredContractGraceDays: z.number().min(0).max(30),
+            reminderFrequency: z.enum(['daily', 'weekly', 'monthly']),
+            emailNotifications: z.boolean(),
+            dashboardNotifications: z.boolean(),
+        }),
+    }),
 })
 
 type CompanyFormValues = z.infer<typeof companyFormSchema>
@@ -51,6 +67,19 @@ export default function CompanySettingsPage() {
             name: "",
             address: "",
             phone: "",
+            settings: {
+                expiringSoonDays: 30,
+                autoRenewal: true,
+                terminationNoticeDays: 60,
+                contractNotifications: {
+                    enabled: true,
+                    expiringContractDays: 30,
+                    expiredContractGraceDays: 7,
+                    reminderFrequency: 'weekly',
+                    emailNotifications: true,
+                    dashboardNotifications: true,
+                },
+            },
         },
     })
 
@@ -64,15 +93,31 @@ export default function CompanySettingsPage() {
                 name: company.name,
                 address: company.address,
                 phone: company.phone || "",
+                settings: {
+                    expiringSoonDays: company.settings?.expiringSoonDays || 30,
+                    autoRenewal: company.settings?.autoRenewal ?? true,
+                    terminationNoticeDays: company.settings?.terminationNoticeDays || 60,
+                    contractNotifications: {
+                        enabled: company.settings?.contractNotifications?.enabled ?? true,
+                        expiringContractDays: company.settings?.contractNotifications?.expiringContractDays || 30,
+                        expiredContractGraceDays: company.settings?.contractNotifications?.expiredContractGraceDays || 7,
+                        reminderFrequency: company.settings?.contractNotifications?.reminderFrequency || 'weekly',
+                        emailNotifications: company.settings?.contractNotifications?.emailNotifications ?? true,
+                        dashboardNotifications: company.settings?.contractNotifications?.dashboardNotifications ?? true,
+                    },
+                },
             })
         }
     }, [company])
 
+    const { user } = useAuth() // Assuming useCompany provides the authenticated user
+
     const onSubmit = async (values: CompanyFormValues) => {
+        const payload = { ...values, owner: user?._id }
         if (company) {
-            await updateCompany(company._id, values)
+            await updateCompany(company._id, payload)
         } else {
-            await createCompany(values)
+            await createCompany(payload)
         }
     }
 
@@ -147,6 +192,207 @@ export default function CompanySettingsPage() {
                                     </FormItem>
                                 )}
                             />
+
+                            <div className="space-y-4 pt-4">
+                                <h4 className="text-sm font-medium">Contract Settings</h4>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="settings.expiringSoonDays"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Expiring Soon Days</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        {...field}
+                                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="settings.terminationNoticeDays"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Termination Notice Days</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        {...field}
+                                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+
+                                <FormField
+                                    control={form.control}
+                                    name="settings.autoRenewal"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base">
+                                                    Auto Renewal
+                                                </FormLabel>
+                                                <div className="text-sm text-muted-foreground">
+                                                    Automatically renew contracts when possible
+                                                </div>
+                                            </div>
+                                            <FormControl>
+                                                <Switch
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
+                            <div className="space-y-4 pt-4">
+                                <h4 className="text-sm font-medium">Contract Notification Settings</h4>
+
+                                <FormField
+                                    control={form.control}
+                                    name="settings.contractNotifications.enabled"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base">
+                                                    Enable Contract Notifications
+                                                </FormLabel>
+                                                <div className="text-sm text-muted-foreground">
+                                                    Receive notifications about contract status changes
+                                                </div>
+                                            </div>
+                                            <FormControl>
+                                                <Switch
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="settings.contractNotifications.expiringContractDays"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Notify Before Expiry (Days)</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        {...field}
+                                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="settings.contractNotifications.expiredContractGraceDays"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Grace Period (Days)</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        {...field}
+                                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+
+                                <FormField
+                                    control={form.control}
+                                    name="settings.contractNotifications.reminderFrequency"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Reminder Frequency</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select reminder frequency" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="daily">Daily</SelectItem>
+                                                    <SelectItem value="weekly">Weekly</SelectItem>
+                                                    <SelectItem value="monthly">Monthly</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <div className="space-y-3">
+                                    <FormField
+                                        control={form.control}
+                                        name="settings.contractNotifications.emailNotifications"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel className="text-base">
+                                                        Email Notifications
+                                                    </FormLabel>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        Send notifications via email
+                                                    </div>
+                                                </div>
+                                                <FormControl>
+                                                    <Switch
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="settings.contractNotifications.dashboardNotifications"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel className="text-base">
+                                                        Dashboard Notifications
+                                                    </FormLabel>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        Show notifications in the dashboard
+                                                    </div>
+                                                </div>
+                                                <FormControl>
+                                                    <Switch
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </div>
 
                             <div className="flex justify-between">
                                 <Button type="submit">

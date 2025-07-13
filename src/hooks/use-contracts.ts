@@ -8,6 +8,10 @@ interface Contract {
     name: string;
     email: string;
   } | string; // Can be populated object or just ID string
+  company?: {
+    _id: string;
+    name: string;
+  } | string; // Can be populated object or just ID string
   type: 'CDD' | 'CDI' | 'Internship' | 'Terminated';
   startDate: string;
   endDate?: string;
@@ -23,7 +27,7 @@ export function useContracts() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchContracts = async (filters?: { status?: string; type?: string; userId?: string }) => {
+  const fetchContracts = async (filters?: { status?: string; type?: string; userId?: string; companyId?: string }) => {
     setLoading(true);
     try {
       // Build query parameters
@@ -39,6 +43,10 @@ export function useContracts() {
       
       if (filters?.userId) {
         searchParams.append('userId', filters.userId);
+      }
+
+      if (filters?.companyId && filters.companyId !== 'all') {
+        searchParams.append('companyId', filters.companyId);
       }
 
       const queryString = searchParams.toString();

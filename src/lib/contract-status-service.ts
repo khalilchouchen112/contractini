@@ -1,5 +1,6 @@
 import dbConnect from './dbConnect';
 import Contract from '@/models/Contract';
+import Company from '@/models/Company';
 
 export interface ContractStatusUpdate {
   contractId: string;
@@ -10,17 +11,16 @@ export interface ContractStatusUpdate {
 }
 
 export class ContractStatusService {
-  private static readonly STATUS_THRESHOLDS = {
-    EXPIRING_SOON_DAYS: 30, // Contracts expiring within 30 days
-    EXPIRED_GRACE_DAYS: 0,   // Contracts past end date
-  };
-
   /**
-   * Calculate the appropriate status for a contract based on its dates
+   * Calculate the appropriate status for a contract based on its dates and company settings
    */
-  static calculateContractStatus(startDate: string, endDate?: string): string {
+  static calculateContractStatus(startDate: string, endDate?: string, companySettings?: any): string {
     const now = new Date();
     const start = new Date(startDate);
+    
+    // Default settings if company settings not provided
+    const expiringSoonDays = companySettings?.contractNotifications?.expiringContractDays || 30;
+    const expiredGraceDays = companySettings?.contractNotifications?.expiredContractGraceDays || 0;
     
     // If contract hasn't started yet
     if (start > now) {
@@ -37,12 +37,12 @@ export class ContractStatusService {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     // Contract has expired
-    if (diffDays < this.STATUS_THRESHOLDS.EXPIRED_GRACE_DAYS) {
+    if (diffDays < -expiredGraceDays) {
       return 'Expired';
     }
 
     // Contract is expiring soon
-    if (diffDays <= this.STATUS_THRESHOLDS.EXPIRING_SOON_DAYS) {
+    if (diffDays <= expiringSoonDays) {
       return 'Expiring Soon';
     }
 
@@ -51,11 +51,15 @@ export class ContractStatusService {
   }
 
   /**
-   * Update all contract statuses based on current date
+   * Update all contract statuses based on current date and company settings
    */
   static async updateAllContractStatuses(): Promise<ContractStatusUpdate[]> {
     try {
       await dbConnect();
+      
+      // Get company settings
+      const company = await Company.findOne({});
+      const companySettings = company?.settings;
       
       // Get all non-terminated contracts
       const contracts = await Contract.find({
@@ -67,7 +71,7 @@ export class ContractStatusService {
 
       for (const contract of contracts) {
         const currentStatus = contract.status;
-        const newStatus = this.calculateContractStatus(contract.startDate, contract.endDate);
+        const newStatus = this.calculateContractStatus(contract.startDate, contract.endDate, companySettings);
 
         // Only update if status has changed
         if (currentStatus !== newStatus) {
@@ -75,7 +79,7 @@ export class ContractStatusService {
             contractId: contract._id.toString(),
             oldStatus: currentStatus,
             newStatus: newStatus,
-            reason: this.getStatusChangeReason(currentStatus, newStatus, contract.endDate),
+            reason: this.getStatusChangeReason(currentStatus, newStatus, contract.endDate, companySettings),
             updatedAt: new Date()
           };
 
@@ -119,7 +123,7 @@ export class ContractStatusService {
   /**
    * Get a human-readable reason for status change
    */
-  private static getStatusChangeReason(oldStatus: string, newStatus: string, endDate?: string): string {
+  private static getStatusChangeReason(oldStatus: string, newStatus: string, endDate?: string, companySettings?: any): string {
     if (newStatus === 'Expired') {
       return `Contract expired on ${endDate ? new Date(endDate).toLocaleDateString() : 'unknown date'}`;
     }
@@ -127,7 +131,8 @@ export class ContractStatusService {
     if (newStatus === 'Expiring Soon') {
       const daysUntilExpiry = endDate ? 
         Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
-      return `Contract expires in ${daysUntilExpiry} days`;
+      const expiringDays = companySettings?.contractNotifications?.expiringContractDays || 30;
+      return `Contract expires in ${daysUntilExpiry} days (notification set for ${expiringDays} days)`;
     }
 
     if (newStatus === 'Active' && oldStatus === 'Expiring Soon') {
@@ -138,14 +143,21 @@ export class ContractStatusService {
   }
 
   /**
-   * Get contracts that are expiring soon
+   * Get contracts that are expiring soon based on company settings
    */
-  static async getExpiringContracts(days: number = 30): Promise<any[]> {
+  static async getExpiringContracts(customDays?: number): Promise<any[]> {
     try {
       await dbConnect();
       
+      // Get company settings if no custom days provided
+      let days = customDays;
+      if (!days) {
+        const company = await Company.findOne({});
+        days = company?.settings?.contractNotifications?.expiringContractDays || 30;
+      }
+      
       const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + days);
+      futureDate.setDate(futureDate.getDate() + (days || 30));
 
       const contracts = await Contract.find({
         status: { $in: ['Active', 'Expiring Soon'] },
@@ -188,11 +200,15 @@ export class ContractStatusService {
   }
 
   /**
-   * Update a single contract's status
+   * Update a single contract's status based on company settings
    */
   static async updateSingleContractStatus(contractId: string): Promise<ContractStatusUpdate | null> {
     try {
       await dbConnect();
+      
+      // Get company settings
+      const company = await Company.findOne({});
+      const companySettings = company?.settings;
       
       const contract = await Contract.findById(contractId);
       if (!contract) {
@@ -200,7 +216,7 @@ export class ContractStatusService {
       }
 
       const currentStatus = contract.status;
-      const newStatus = this.calculateContractStatus(contract.startDate, contract.endDate);
+      const newStatus = this.calculateContractStatus(contract.startDate, contract.endDate, companySettings);
 
       if (currentStatus !== newStatus) {
         await Contract.findByIdAndUpdate(contractId, {
@@ -212,7 +228,7 @@ export class ContractStatusService {
           contractId,
           oldStatus: currentStatus,
           newStatus,
-          reason: this.getStatusChangeReason(currentStatus, newStatus, contract.endDate),
+          reason: this.getStatusChangeReason(currentStatus, newStatus, contract.endDate, companySettings),
           updatedAt: new Date()
         };
       }

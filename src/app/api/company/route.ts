@@ -2,12 +2,22 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Company from '@/models/Company';
 
-export async function GET() {
+export async function GET(request: Request) {
   await dbConnect();
 
   try {
-    const company = await Company.findOne({});
-    return NextResponse.json({ success: true, data: company });
+    const { searchParams } = new URL(request.url);
+    const getAll = searchParams.get('all');
+    
+    if (getAll === 'true') {
+      // Fetch all companies
+      const companies = await Company.find({}).sort({ name: 1 });
+      return NextResponse.json({ success: true, data: companies });
+    } else {
+      // Fetch single company (default behavior)
+      const company = await Company.findOne({});
+      return NextResponse.json({ success: true, data: company });
+    }
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
@@ -18,6 +28,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
+    console.log('Creating company with data:', body);
     const company = await Company.create(body);
     return NextResponse.json({ success: true, data: company }, { status: 201 });
   } catch (error) {
