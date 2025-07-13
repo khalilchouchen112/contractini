@@ -8,6 +8,9 @@ import {
   Filter,
   X,
   Link,
+  RefreshCw,
+  Clock,
+  AlertTriangle,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -63,6 +66,7 @@ import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useContracts } from "@/hooks/use-contracts"
+import { useContractStatusService } from "@/hooks/use-contract-status"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -108,6 +112,7 @@ interface Contract {
 
 export default function ContractsPage() {
   const { contracts, loading, fetchContracts, createContract, updateContract, deleteContract } = useContracts();
+  const { isUpdating, updateAllStatuses, getExpiringContracts } = useContractStatusService();
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const { toast } = useToast();
@@ -315,6 +320,15 @@ export default function ContractsPage() {
     }
   };
 
+  // Handle manual status update
+  const handleStatusUpdate = async () => {
+    const result = await updateAllStatuses();
+    if (result && result.updatedContracts > 0) {
+      // Refresh contracts list to show updated statuses
+      fetchContracts(filters);
+    }
+  };
+
   const handleExportToExcel = async () => {
     if (isExporting) return; // Prevent multiple exports
 
@@ -460,6 +474,18 @@ export default function ContractsPage() {
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleStatusUpdate}
+            disabled={isUpdating || loading}
+            className="h-8 gap-1"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isUpdating ? 'animate-spin' : ''}`} />
+            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+              {isUpdating ? 'Updating...' : 'Update Status'}
+            </span>
+          </Button>
           <Button
             size="sm"
             variant="outline"

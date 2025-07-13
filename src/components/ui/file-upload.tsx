@@ -4,26 +4,32 @@ import { useCallback, useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { generateClientDropzoneAccept } from "uploadthing/client";
 import { useUploadThing } from "@/lib/uploadthing-hooks";
-import { Upload, File, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload, File, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { Button } from "./button";
 
 interface FileUploadProps {
     onUploadComplete: (urls: string[]) => void;
+    onError?: (error: string) => void;
 }
 
-export function FileUpload({ onUploadComplete }: FileUploadProps) {
+export function FileUpload({ onUploadComplete, onError }: FileUploadProps) {
     const [files, setFiles] = useState<File[]>([]);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+    const [retryCount, setRetryCount] = useState(0);
+    const [errorMessage, setErrorMessage] = useState<string>('');
     
     const onDrop = useCallback((acceptedFiles: File[]) => {
         setFiles(acceptedFiles);
         setUploadStatus('idle');
+        setRetryCount(0);
+        setErrorMessage('');
     }, []);
 
     const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
         onDrop,
         accept: generateClientDropzoneAccept(["pdf"]),
         multiple: true,
-        maxSize: 10 * 1024 * 1024, // 10MB max file size
+        maxSize: 4 * 1024 * 1024, // 4MB max file size to match backend
     });
 
     const { startUpload, isUploading } = useUploadThing("contractUploader", {
@@ -33,30 +39,80 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
                 onUploadComplete(urls);
                 setFiles([]);
                 setUploadStatus('success');
+                setRetryCount(0);
+                setErrorMessage('');
                 // Reset status after 2 seconds
                 setTimeout(() => setUploadStatus('idle'), 2000);
             }
         },
         onUploadError: (error: Error) => {
-            console.error(error);
+            console.error("Upload error:", error);
             setUploadStatus('error');
-            // Reset status after 3 seconds
-            setTimeout(() => setUploadStatus('idle'), 3000);
+            
+            // Parse error message for better user feedback
+            let userMessage = 'Upload failed. ';
+            if (error.message.includes('ECONNRESET') || error.message.includes('network')) {
+                userMessage += 'Network connection issue. Please check your internet connection and try again.';
+            } else if (error.message.includes('Transport error')) {
+                userMessage += 'Connection timeout. Please try again.';
+            } else if (error.message.includes('Too Many Requests')) {
+                userMessage += 'Too many requests. Please wait a moment and try again.';
+            } else {
+                userMessage += error.message || 'Please try again.';
+            }
+            
+            setErrorMessage(userMessage);
+            
+            // Call external error handler if provided
+            onError?.(userMessage);
+            
+            // Auto-retry up to 2 times for network errors
+            if (retryCount < 2 && (
+                error.message.includes('ECONNRESET') || 
+                error.message.includes('Transport error') ||
+                error.message.includes('network')
+            )) {
+                setTimeout(() => {
+                    setRetryCount(prev => prev + 1);
+                    handleUpload();
+                }, 2000 * (retryCount + 1)); // Exponential backoff
+            }
         },
     });
 
-    // Auto-upload when files are selected
-    useEffect(() => {
-        if (files.length > 0 && uploadStatus === 'idle') {
+    const handleUpload = useCallback(() => {
+        if (files.length > 0) {
             setUploadStatus('uploading');
             startUpload(files);
         }
-    }, [files, startUpload, uploadStatus]);
+    }, [files, startUpload]);
+
+    const handleRetry = () => {
+        setUploadStatus('idle');
+        setErrorMessage('');
+        handleUpload();
+    };
+
+    // Auto-upload when files are selected
+    useEffect(() => {
+        if (files.length > 0 && uploadStatus === 'idle' && retryCount === 0) {
+            handleUpload();
+        }
+    }, [files, uploadStatus, retryCount, handleUpload]);
 
     const getStatusIcon = () => {
         switch (uploadStatus) {
             case 'uploading':
-                return <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>;
+                return (
+                    <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                        {retryCount > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                                Retry {retryCount}/2
+                            </span>
+                        )}
+                    </div>
+                );
             case 'success':
                 return <CheckCircle className="h-5 w-5 text-green-500" />;
             case 'error':
@@ -88,11 +144,13 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
         }
         switch (uploadStatus) {
             case 'uploading':
-                return `Uploading ${files.length} file(s)...`;
+                return retryCount > 0 
+                    ? `Retrying upload (${retryCount}/2)...`
+                    : `Uploading ${files.length} file(s)...`;
             case 'success':
                 return 'Upload completed successfully!';
             case 'error':
-                return 'Upload failed. Please try again.';
+                return errorMessage || 'Upload failed. Please try again.';
             default:
                 return files.length > 0
                     ? `${files.length} file(s) ready to upload`
@@ -132,8 +190,20 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
                             ))}
                         </div>
                     )}
+                    {uploadStatus === 'error' && retryCount >= 2 && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRetry}
+                            className="text-xs"
+                        >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Try Again
+                        </Button>
+                    )}
                     <div className="text-xs text-muted-foreground/70">
-                        Only PDF files up to 10MB are allowed
+                        Only PDF files up to 4MB are allowed
                     </div>
                 </div>
             </div>

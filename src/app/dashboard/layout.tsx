@@ -28,6 +28,7 @@ import { useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useToast } from "@/hooks/use-toast"
+import { ContractStatusNotification } from "@/components/contract-status-notification"
 
 export default function DashboardLayout({
   children,
@@ -204,6 +205,10 @@ export default function DashboardLayout({
           </DropdownMenu>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+          {/* Show contract expiry notifications for admin users */}
+          {user.role === 'ADMIN' && (
+            <ContractStatusNotification autoCheck={true} checkInterval={60} />
+          )}
           {children}
         </main>
       </div>

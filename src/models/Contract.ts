@@ -11,6 +11,14 @@ export interface IContract extends Document {
     uploadDate: Date;
   }>;
   employee: mongoose.Types.ObjectId;
+  lastStatusUpdate?: Date;
+  statusHistory?: Array<{
+    status: string;
+    previousStatus: string;
+    updatedAt: Date;
+    reason: string;
+    updatedBy: string;
+  }>;
 }
 
 const ContractSchema: Schema = new Schema({
@@ -23,7 +31,17 @@ const ContractSchema: Schema = new Schema({
     fileName: { type: String, required: true },
     fileUrl: { type: String, required: true },
     uploadDate: { type: Date, default: Date.now }
+  }],
+  lastStatusUpdate: { type: Date, default: Date.now },
+  statusHistory: [{
+    status: { type: String, required: true },
+    previousStatus: { type: String, required: true },
+    updatedAt: { type: Date, default: Date.now },
+    reason: { type: String, required: true },
+    updatedBy: { type: String, required: true, default: 'system' }
   }]
+}, {
+  timestamps: true
 });
 
 export default mongoose.models.Contract || mongoose.model<IContract>('Contract', ContractSchema);
