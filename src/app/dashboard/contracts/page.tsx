@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import {
   MoreHorizontal,
   PlusCircle,
@@ -111,6 +112,14 @@ interface Contract {
 };
 
 export default function ContractsPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-8">Loading contracts...</div>}>
+      <ContractsContent />
+    </Suspense>
+  );
+}
+
+function ContractsContent() {
   const { contracts, loading, fetchContracts, createContract, updateContract, deleteContract } = useContracts();
   const { isUpdating, updateAllStatuses, getExpiringContracts } = useContractStatusService();
   const [users, setUsers] = useState<User[]>([]);
@@ -320,6 +329,71 @@ export default function ContractsPage() {
     }
   };
 
+  const handleRenewContract = async (contract: Contract) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to renew the contract for ${getEmployeeName(contract.employee)}?`
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      // Calculate new end date (1 year from current end date or today if no end date)
+      const currentEndDate = contract.endDate ? new Date(contract.endDate) : new Date();
+      const newEndDate = new Date(currentEndDate);
+      newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+
+      const renewalData = {
+        endDate: newEndDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        status: 'Active' as const
+      };
+
+      const success = await updateContract(contract._id, renewalData);
+      
+      if (success) {
+        toast({
+          title: "Contract Renewed",
+          description: `Contract for ${getEmployeeName(contract.employee)} has been renewed until ${format(newEndDate, "PPP")}`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to renew contract",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTerminateContract = async (contract: Contract) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to terminate the contract for ${getEmployeeName(contract.employee)}? This action cannot be undone.`
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      const terminationData = {
+        status: 'Terminated' as const,
+        endDate: new Date().toISOString().split('T')[0] // Set end date to today
+      };
+
+      const success = await updateContract(contract._id, terminationData);
+      
+      if (success) {
+        toast({
+          title: "Contract Terminated",
+          description: `Contract for ${getEmployeeName(contract.employee)} has been terminated`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to terminate contract",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Handle manual status update
   const handleStatusUpdate = async () => {
     const result = await updateAllStatuses();
@@ -473,7 +547,7 @@ export default function ContractsPage() {
             </Button>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-4 flex items-center ml-2 gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -624,8 +698,19 @@ export default function ContractsPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleEdit(contract)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Renew</DropdownMenuItem>
-                        <DropdownMenuItem>Terminate</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleRenewContract(contract)}
+                          disabled={contract.status === 'Terminated'}
+                        >
+                          Renew
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleTerminateContract(contract)}
+                          disabled={contract.status === 'Terminated'}
+                          className={contract.status === 'Terminated' ? '' : 'text-orange-600 focus:text-orange-700'}
+                        >
+                          Terminate
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
                             const employeeId = typeof contract.employee === 'object'
@@ -654,7 +739,7 @@ export default function ContractsPage() {
       </Card>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="w-fit">
+        <DialogContent className="w-fit max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingContract ? 'Edit Contract' : 'Create New Contract'}</DialogTitle>
             <DialogDescription>
@@ -744,10 +829,11 @@ export default function ContractsPage() {
               <FormField
                 control={form.control}
                 name="status"
+                disabled={!!editingContract}
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!editingContract} >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
