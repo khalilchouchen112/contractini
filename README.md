@@ -206,7 +206,7 @@ Configure schedule in `vercel.json`:
 
 2. **Start Production Server**:
    ```bash
-   npm start
+   npm run dev
    ```
 
 ## 🔒 Security Features
