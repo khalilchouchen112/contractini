@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface ICompany extends Document {
   name: string;
   address: string;
+  email?: string;
   phone?: string;
   owner: mongoose.Types.ObjectId;
   settings: {
@@ -23,6 +24,7 @@ export interface ICompany extends Document {
 const CompanySchema: Schema = new Schema({
   name: { type: String, required: true, unique: true },
   address: { type: String, required: true },
+  email: { type: String },
   phone: { type: String },
   owner: { type: mongoose.Types.ObjectId, ref: 'User', required: true },
   settings: {

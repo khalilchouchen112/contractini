@@ -40,6 +40,7 @@ import { useAuth } from "@/contexts/auth-context"
 const companyFormSchema = z.object({
     name: z.string().min(1, "Company name is required"),
     address: z.string().min(1, "Address is required"),
+    email: z.string().email("Please enter a valid email address").optional(),
     phone: z.string().optional(),
     settings: z.object({
         expiringSoonDays: z.number().min(1).max(365),
@@ -66,6 +67,7 @@ export default function CompanySettingsPage() {
         defaultValues: {
             name: "",
             address: "",
+            email: "",
             phone: "",
             settings: {
                 expiringSoonDays: 30,
@@ -92,6 +94,7 @@ export default function CompanySettingsPage() {
             form.reset({
                 name: company.name,
                 address: company.address,
+                email: company.email || "",
                 phone: company.phone || "",
                 settings: {
                     expiringSoonDays: company.settings?.expiringSoonDays || 30,
@@ -173,6 +176,20 @@ export default function CompanySettingsPage() {
                                         <FormLabel>Address</FormLabel>
                                         <FormControl>
                                             <Input {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Email Address</FormLabel>
+                                        <FormControl>
+                                            <Input type="email" placeholder="company@example.com" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

@@ -8,6 +8,7 @@ import {
   Settings,
   PanelLeft,
   Building,
+  MessageSquare,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 
@@ -79,6 +80,7 @@ export default function DashboardLayout({
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/contracts", label: "Contracts", icon: FileText },
     { href: "/dashboard/users", label: "Users", icon: Users },
+    { href: "/dashboard/requests", label: "Requests", icon: MessageSquare },
     { href: "/dashboard/settings/company", label: "Company", icon: Building },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
   ]
