@@ -165,8 +165,8 @@ export default function RequestsPage() {
                   <TableRow key={request._id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{request.employee.name}</div>
-                        <div className="text-sm text-gray-500">{request.employee.email}</div>
+                        <div className="font-medium">{request.employee?.name || 'Unknown Employee'}</div>
+                        <div className="text-sm text-gray-500">{request.employee?.email || 'No email'}</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -237,8 +237,8 @@ export default function RequestsPage() {
                   <TableRow key={request._id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{request.employee.name}</div>
-                        <div className="text-sm text-gray-500">{request.employee.email}</div>
+                        <div className="font-medium">{request.employee?.name || 'Unknown Employee'}</div>
+                        <div className="text-sm text-gray-500">{request.employee?.email || 'No email'}</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -284,7 +284,7 @@ export default function RequestsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Employee</label>
-                  <p className="text-sm text-gray-600">{selectedRequest.employee.name}</p>
+                  <p className="text-sm text-gray-600">{selectedRequest.employee?.name || 'Unknown Employee'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Request Type</label>
